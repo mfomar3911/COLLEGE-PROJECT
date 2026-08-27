@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy Meter - IoT Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0f1a;
+            --bg-secondary: #111827;
+            --card: #1a2332;
+            --card-hover: #222d40;
+            --border: #2a3a52;
+            --fg: #e8f0f8;
+            --fg-muted: #8898aa;
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.3);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Background Grid */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            background: var(--card-hover);
+            border-color: var(--accent);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        /* Gauge */
+        .gauge-container {
+            position: relative;
+            width: 180px;
+            height: 180px;
+        }
+
+        .gauge-bg {
+            stroke: var(--border);
+        }
+
+        .gauge-fill {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
+        .gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        /* Pulse Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Glow */
+        .glow-accent {
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Status Indicator */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-online {
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+
+        /* Billing Cycle Progress */
+        .cycle-progress {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .cycle-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--info));
+            transition: width 1s linear;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        /* Table */
+        .billing-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .billing-table th,
+        .billing-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .billing-table th {
+            color: var(--fg-muted);
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .billing-table tr:hover td {
+            background: rgba(0, 212, 170, 0.05);
+        }
+
+        /* Tabs */
+        .tab-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .tab-btn:hover {
+            background: var(--card-hover);
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        /* Entrance Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .animate-in {
+                animation: none;
+                opacity: 1;
+            }
+            .pulse, .status-online {
+                animation: none;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .gauge-container {
+                width: 140px;
+                height: 140px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-gradient"></div>
+
+    <div class="relative z-10 min-h-screen">
+        <!-- Header -->
+        <header class="border-b border-[var(--border)] bg-[var(--bg-secondary)]/80 backdrop-blur-xl sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--info)] flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[var(--bg)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold tracking-tight">Smart Energy Meter</h1>
+                            <p class="text-xs text-[var(--fg-muted)]">IoT Monitoring Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-2">
+                            <div class="status-dot status-online"></div>
+                            <span class="text-sm text-[var(--accent)]">Connected</span>
+                        </div>
+                        <div class="text-right hidden sm:block">
+                            <p class="text-sm font-medium" id="currentTime">--:--:--</p>
+                            <p class="text-xs text-[var(--fg-muted)]" id="currentDate">--- --, ----</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+            <!-- Billing Cycle Banner -->
+            <div class="card p-4 animate-in" style="animation-delay: 0.1s">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="font-semibold">Current Billing Cycle</span>
+                            <span class="mono text-sm text-[var(--fg-muted)]" id="cycleId">Cycle #001</span>
+                        </div>
+                        <div class="flex items-center gap-4 mt-2">
+                            <span class="text-sm text-[var(--fg-muted)]">Time Remaining:</span>
+                            <span class="mono text-lg font-bold text-[var(--accent)]" id="cycleTimer">10:00</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 max-w-md">
+                        <div class="cycle-progress">
+                            <div class="cycle-fill" id="cycleProgress" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between mt-2 text-xs text-[var(--fg-muted)]">
+                            <span>Cycle Start</span>
+                            <span id="cycleProgressText">0%</span>
+                            <span>Cycle End</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Gauges -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="card p-6 animate-in" style="animation-delay: 0.15s">
+                    <div class="flex flex-col items-center">
+                        <div class="gauge-container">
+                            <svg class="w-full h-full" viewBox="0 0 180 180">
+                                <circle class="gauge-bg" cx="90" cy="90" r="75" fill="none" stroke-width="12"/>
+                                <circle class="gauge-fill" id="voltageGauge" cx="90" cy="90" r="75" fill="none" 
+                                    stroke="url(#voltageGradient)" stroke-width="12" stroke-linecap="round"
+                                    stroke-dasharray="471" stroke-dashoffset="471"
+                                    transform="rotate(-90 90 90)"/>
+                                <defs>
+                                    <linearGradient id="voltageGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#00d4aa"/>
+                                        <stop offset="100%" style="stop-color:#3b82f6"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="gauge-value">
+                                <span class="mono text-3xl font-bold" id="voltageValue">0</span>
+                                <span class="text-sm text-[var(--fg-muted)]">V</span>
+                            </div>
+                        </div>
+                        <p class="mt-4 font-medium">Voltage</p>
+                        <p class="text-xs text-[var(--fg-muted)]">RMS Value</p>
+                    </div>
+                </div>
+
+                <div class="card p-6 animate-in" style="animation-delay: 0.2s">
+                    <div class="flex flex-col items-center">
+                        <div class="gauge-container">
+                            <svg class="w-full h-full" viewBox="0 0 180 180">
+                                <circle class="gauge-bg" cx="90" cy="90" r="75" fill="none" stroke-width="12"/>
+                                <circle class="gauge-fill" id="currentGauge" cx="90" cy="90" r="75" fill="none" 
+                                    stroke="url(#currentGradient)" stroke-width="12" stroke-linecap="round"
+                                    stroke-dasharray="471" stroke-dashoffset="471"
+                                    transform="rotate(-90 90 90)"/>
+                                <defs>
+                                    <linearGradient id="currentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#f59e0b"/>
+                                        <stop offset="100%" style="stop-color:#ef4444"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="gauge-value">
+                                <span class="mono text-3xl font-bold" id="currentValue">0.00</span>
+                                <span class="text-sm text-[var(--fg-muted)]">A</span>
+                            </div>
+                        </div>
+                        <p class="mt-4 font-medium">Current</p>
+                        <p class="text-xs text-[var(--fg-muted)]">Load Current</p>
+                    </div>
+                </div>
+
+                <div class="card p-6 animate-in" style="animation-delay: 0.25s">
+                    <div class="flex flex-col items-center">
+                        <div class="gauge-container">
+                            <svg class="w-full h-full" viewBox="0 0 180 180">
+                                <circle class="gauge-bg" cx="90" cy="90" r="75" fill="none" stroke-width="12"/>
+                                <circle class="gauge-fill" id="powerGauge" cx="90" cy="90" r="75" fill="none" 
+                                    stroke="url(#powerGradient)" stroke-width="12" stroke-linecap="round"
+                                    stroke-dasharray="471" stroke-dashoffset="471"
+                                    transform="rotate(-90 90 90)"/>
+                                <defs>
+                                    <linearGradient id="powerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#8b5cf6"/>
+                                        <stop offset="100%" style="stop-color:#ec4899"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="gauge-value">
+                                <span class="mono text-3xl font-bold" id="powerValue">0</span>
+                                <span class="text-sm text-[var(--fg-muted)]">W</span>
+                            </div>
+                        </div>
+                        <p class="mt-4 font-medium">Power</p>
+                        <p class="text-xs text-[var(--fg-muted)]">Real Power</p>
+                    </div>
+                </div>
+
+                <div class="card p-6 animate-in" style="animation-delay: 0.3s">
+                    <div class="flex flex-col items-center">
+                        <div class="gauge-container">
+                            <svg class="w-full h-full" viewBox="0 0 180 180">
+                                <circle class="gauge-bg" cx="90" cy="90" r="75" fill="none" stroke-width="12"/>
+                                <circle class="gauge-fill" id="energyGauge" cx="90" cy="90" r="75" fill="none" 
+                                    stroke="url(#energyGradient)" stroke-width="12" stroke-linecap="round"
+                                    stroke-dasharray="471" stroke-dashoffset="471"
+                                    transform="rotate(-90 90 90)"/>
+                                <defs>
+                                    <linearGradient id="energyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#06b6d4"/>
+                                        <stop offset="100%" style="stop-color:#10b981"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="gauge-value">
+                                <span class="mono text-2xl font-bold" id="energyValue">0.000</span>
+                                <span class="text-sm text-[var(--fg-muted)]">kWh</span>
+                            </div>
+                        </div>
+                        <p class="mt-4 font-medium">Energy</p>
+                        <p class="text-xs text-[var(--fg-muted)]">This Cycle</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts & Stats Row -->
+            <div class="grid lg:grid-cols-3 gap-6">
+                <!-- Real-time Chart -->
+                <div class="lg:col-span-2 card p-6 animate-in" style="animation-delay: 0.35s">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Real-time Power Consumption</h3>
+                        <div class="flex gap-2">
+                            <span class="flex items-center gap-1 text-xs">
+                                <span class="w-3 h-1 rounded bg-[var(--accent)]"></span>
+                                Power (W)
+                            </span>
+                            <span class="flex items-center gap-1 text-xs">
+                                <span class="w-3 h-1 rounded bg-[var(--warning)]"></span>
+                                Current (A)
+                            </span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="realtimeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="card p-6 animate-in" style="animation-delay: 0.4s">
+                    <h3 class="font-semibold mb-4">Quick Statistics</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+                            <div>
+                                <p class="text-xs text-[var(--fg-muted)]">Today's Consumption</p>
+                                <p class="mono text-xl font-bold" id="todayEnergy">0.00 kWh</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-[var(--accent)]/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+                            <div>
+                                <p class="text-xs text-[var(--fg-muted)]">Today's Cost</p>
+                                <p class="mono text-xl font-bold" id="todayCost">Rs 0.00</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-[var(--warning)]/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-[var(--warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+                            <div>
+                                <p class="text-xs text-[var(--fg-muted)]">Tariff Rate</p>
+                                <p class="mono text-xl font-bold">Rs 2.00/kWh</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-[var(--info)]/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-[var(--info)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+                            <div>
+                                <p class="text-xs text-[var(--fg-muted)]">Power Factor</p>
+                                <p class="mono text-xl font-bold" id="powerFactor">0.95</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs Section -->
+            <div class="card p-6 animate-in" style="animation-delay: 0.45s">
+                <div class="flex flex-wrap gap-2 mb-6 border-b border-[var(--border)] pb-4">
+                    <button class="tab-btn active" data-tab="billing">Billing Records</button>
+                    <button class="tab-btn" data-tab="analytics">AI Analytics</button>
+                    <button class="tab-btn" data-tab="history">Usage History</button>
+                </div>
+
+                <!-- Billing Tab -->
+                <div id="billingTab" class="tab-content">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Billing Records - 10-Minute Cycles</h3>
+                        <span class="text-sm text-[var(--fg-muted)]" id="totalBills">0 cycles completed</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="billing-table">
+                            <thead>
+                                <tr>
+                                    <th>Cycle ID</th>
+                                    <th>Date & Time</th>
+                                    <th>Duration</th>
+                                    <th>Energy (kWh)</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="billingTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-[var(--fg-muted)] py-8">
+                                        No billing records yet. First cycle in progress...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div id="analyticsTab" class="tab-content hidden">
+                    <h3 class="font-semibold mb-4">AI-Powered Energy Analytics</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- AI Insights -->
+                        <div class="space-y-4">
+                            <div class="alert alert-info">
+                                <svg class="w-5 h-5 text-[var(--info)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                                <div>
+                                    <p class="font-medium text-sm">AI Recommendation</p>
+                                    <p class="text-xs text-[var(--fg-muted)] mt-1" id="aiRecommendation">Collecting data for analysis...</p>
+                                </div>
+                            </div>
+                            <div class="alert alert-warning">
+                                <svg class="w-5 h-5 text-[var(--warning)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                <div>
+                                    <p class="font-medium text-sm">Anomaly Detection</p>
+                                    <p class="text-xs text-[var(--fg-muted)] mt-1" id="anomalyStatus">Monitoring for unusual patterns...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Predictions Chart -->
+                        <div>
+                            <p class="text-sm font-medium mb-2">Energy Demand Prediction (Next 6 Hours)</p>
+                            <div class="chart-container">
+                                <canvas id="predictionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Efficiency Score -->
+                    <div class="mt-6 p-4 rounded-lg bg-[var(--bg-secondary)]">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <p class="text-sm text-[var(--fg-muted)]">Energy Efficiency Score</p>
+                                <p class="mono text-4xl font-bold text-[var(--accent)]" id="efficiencyScore">--</p>
+                            </div>
+                            <div class="flex-1 max-w-md">
+                                <p class="text-xs text-[var(--fg-muted)] mb-2">Based on consumption patterns and peak usage analysis</p>
+                                <div class="h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--info)] transition-all duration-500" id="efficiencyBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="historyTab" class="tab-content hidden">
+                    <h3 class="font-semibold mb-4">Daily Usage History</h3>
+                    <div class="chart-container" style="height: 250px">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Status -->
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="card p-4 animate-in" style="animation-delay: 0.5s">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-[var(--accent)]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs text-[var(--fg-muted)]">Microcontroller</p>
+                            <p class="font-semibold">ESP32-WROOM</p>
+                            <p class="text-xs text-[var(--accent)]">Online</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-4 animate-in" style="animation-delay: 0.55s">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-[var(--info)]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[var(--info)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs text-[var(--fg-muted)]">Communication</p>
+                            <p class="font-semibold">MQTT Protocol</p>
+                            <p class="text-xs text-[var(--info)]">Secure TLS</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-4 animate-in" style="animation-delay: 0.6s">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-[var(--warning)]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[var(--warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs text-[var(--fg-muted)]">Cloud Platform</p>
+                            <p class="font-semibold">AWS IoT Core</p>
+                            <p class="text-xs text-[var(--warning)]">Synced</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-[var(--border)] mt-12 py-6">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <p class="text-sm text-[var(--fg-muted)]">Smart Energy Meter IoT System - Real-time Monitoring & Automated Billing</p>
+                <p class="text-xs text-[var(--fg-muted)] mt-2">Tariff Rate: Rs 2.00 per kWh | Billing Cycle: 10 Minutes</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Initialize all state variables first
+        const TARIFF_RATE = 2.00; // Rs per kWh
+        const CYCLE_DURATION = 600; // 10 minutes in seconds
+        
+        let cycleNumber = 1;
+        let cycleTimeRemaining = CYCLE_DURATION;
+        let cycleEnergy = 0;
+        let totalEnergyToday = 0;
+        let totalCostToday = 0;
+        let billingRecords = [];
+        let powerHistory = [];
+        let currentHistory = [];
+        let predictionData = [];
+        
+        // Current electrical values
+        let currentVoltage = 220;
+        let currentCurrent = 0;
+        let currentPower = 0;
+        
+        // Chart instances (will be initialized after DOM is ready)
+        let realtimeChartInstance = null;
+        let predictionChartInstance = null;
+        let historyChartInstance = null;
+        
+        // DOM Ready Handler
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            initializeTabs();
+            startSimulation();
+            updateTime();
+            setInterval(updateTime, 1000);
+        });
+
+        // Update time display
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
+        }
+
+        // Initialize Charts
+        function initializeCharts() {
+            // Realtime Chart
+            const realtimeCtx = document.getElementById('realtimeChart');
+            if (realtimeCtx) {
+                realtimeChartInstance = realtimeCtx.getContext('2d');
+                drawRealtimeChart();
+            }
+
+            // Prediction Chart
+            const predictionCtx = document.getElementById('predictionChart');
+            if (predictionCtx) {
+                predictionChartInstance = predictionCtx.getContext('2d');
+                drawPredictionChart();
+            }
+
+            // History Chart
+            const historyCtx = document.getElementById('historyChart');
+            if (historyCtx) {
+                historyChartInstance = historyCtx.getContext('2d');
+                drawHistoryChart();
+            }
+        }
+
+        // Draw realtime chart
+        function drawRealtimeChart() {
+            if (!realtimeChartInstance) return;
+            
+            const canvas = realtimeChartInstance.canvas;
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = realtimeChartInstance;
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw grid
+            ctx.strokeStyle = 'rgba(42, 58, 82, 0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 6; i++) {
+                const y = (height / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            
+            // Draw power line
+            if (powerHistory.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#00d4aa';
+                ctx.lineWidth = 2;
+                
+                const maxPower = Math.max(...powerHistory, 1000);
+                powerHistory.forEach((val, i) => {
+                    const x = (i / (powerHistory.length - 1)) * width;
+                    const y = height - (val / maxPower) * (height - 40) - 20;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                
+                // Glow effect
+                ctx.shadowColor = '#00d4aa';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+            
+            // Draw current line
+            if (currentHistory.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                
+                const maxCurrent = Math.max(...currentHistory, 10);
+                currentHistory.forEach((val, i) => {
+                    const x = (i / (currentHistory.length - 1)) * width;
+                    const y = height - (val / maxCurrent) * (height - 40) - 20;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+        }
+
+        // Draw prediction chart
+        function drawPredictionChart() {
+            if (!predictionChartInstance) return;
+            
+            const canvas = predictionChartInstance.canvas;
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = predictionChartInstance;
+            ctx.clearRect(0, 0, width, height);
+            
+            // Generate prediction data
+            const hours = ['Now', '+1h', '+2h', '+3h', '+4h', '+5h', '+6h'];
+            const predictions = predictionData.length > 0 ? predictionData : [0.5, 0.6, 0.8, 1.2, 1.0, 0.7, 0.5];
+            
+            const barWidth = (width - 60) / predictions.length;
+            const maxVal = Math.max(...predictions, 1);
+            
+            predictions.forEach((val, i) => {
+                const barHeight = (val / maxVal) * (height - 60);
+                const x = 30 + i * barWidth + barWidth * 0.2;
+                const y = height - barHeight - 30;
+                
+                // Create gradient
+                const gradient = ctx.createLinearGradient(x, y + barHeight, x, y);
+                gradient.addColorStop(0, '#3b82f6');
+                gradient.addColorStop(1, '#00d4aa');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, barWidth * 0.6, barHeight);
+                
+                // Label
+                ctx.fillStyle = '#8898aa';
+                ctx.font = '10px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(hours[i], x + barWidth * 0.3, height - 10);
+                ctx.fillText(val.toFixed(1), x + barWidth * 0.3, y - 5);
+            });
+        }
+
+        // Draw history chart
+        function drawHistoryChart() {
+            if (!historyChartInstance) return;
+            
+            const canvas = historyChartInstance.canvas;
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = historyChartInstance;
+            ctx.clearRect(0, 0, width, height);
+            
+            // Sample history data
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const usage = [12.5, 14.2, 11.8, 15.3, 13.9, 18.2, 16.7];
+            
+            const barWidth = (width - 80) / days.length;
+            const maxVal = Math.max(...usage);
+            
+            usage.forEach((val, i) => {
+                const barHeight = (val / maxVal) * (height - 60);
+                const x = 40 + i * barWidth + barWidth * 0.15;
+                const y = height - barHeight - 30;
+                
+                // Create gradient
+                const gradient = ctx.createLinearGradient(x, y + barHeight, x, y);
+                gradient.addColorStop(0, '#8b5cf6');
+                gradient.addColorStop(1, '#ec4899');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, barWidth * 0.7, barHeight);
+                
+                // Day label
+                ctx.fillStyle = '#8898aa';
+                ctx.font = '11px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(days[i], x + barWidth * 0.35, height - 10);
+                
+                // Value
+                ctx.fillStyle = '#e8f0f8';
+                ctx.fillText(val.toFixed(1), x + barWidth * 0.35, y - 5);
+            });
+        }
+
+        // Initialize tabs
+        function initializeTabs() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    const tabId = btn.dataset.tab + 'Tab';
+                    const tabElement = document.getElementById(tabId);
+                    if (tabElement) {
+                        tabElement.classList.remove('hidden');
+                    }
+                    
+                    // Redraw charts when switching tabs
+                    setTimeout(() => {
+                        if (btn.dataset.tab === 'analytics') drawPredictionChart();
+                        if (btn.dataset.tab === 'history') drawHistoryChart();
+                    }, 50);
+                });
+            });
+        }
+
+        // Start simulation
+        function startSimulation() {
+            // Simulate electrical readings
+            setInterval(updateElectricalReadings, 1000);
+            
+            // Update cycle timer
+            setInterval(updateCycleTimer, 1000);
+            
+            // Update charts
+            setInterval(() => {
+                drawRealtimeChart();
+            }, 1000);
+        }
+
+        // Update electrical readings
+        function updateElectricalReadings() {
+            // Simulate realistic voltage fluctuation (220V ± 5V)
+            currentVoltage = 220 + (Math.random() - 0.5) * 10;
+            
+            // Simulate current based on time of day (higher during peak hours)
+            const hour = new Date().getHours();
+            const baseCurrent = hour >= 18 && hour <= 22 ? 8 : hour >= 6 && hour <= 9 ? 6 : 3;
+            currentCurrent = baseCurrent + Math.random() * 2;
+            
+            // Calculate power (P = V * I * PF)
+            const powerFactor = 0.95;
+            currentPower = currentVoltage * currentCurrent * powerFactor;
+            
+            // Update cycle energy (kWh = W * hours / 1000)
+            cycleEnergy += (currentPower / 1000) * (1 / 3600); // 1 second in hours
+            
+            // Update displays
+            updateGauge('voltageGauge', currentVoltage, 250, 180, 260);
+            document.getElementById('voltageValue').textContent = Math.round(currentVoltage);
+            
+            updateGauge('currentGauge', currentCurrent, 20, 0, 25);
+            document.getElementById('currentValue').textContent = currentCurrent.toFixed(2);
+            
+            updateGauge('powerGauge', currentPower, 3000, 0, 5000);
+            document.getElementById('powerValue').textContent = Math.round(currentPower);
+            
+            updateGauge('energyGauge', cycleEnergy * 100, 100, 0, 100);
+            document.getElementById('energyValue').textContent = cycleEnergy.toFixed(3);
+            
+            // Update power factor
+            document.getElementById('powerFactor').textContent = powerFactor.toFixed(2);
+            
+            // Update history for charts
+            powerHistory.push(currentPower);
+            currentHistory.push(currentCurrent);
+            if (powerHistory.length > 60) powerHistory.shift();
+            if (currentHistory.length > 60) currentHistory.shift();
+            
+            // Update prediction data
+            updatePredictions();
+        }
+
+        // Update gauge
+        function updateGauge(id, value, max, minVal, maxVal) {
+            const gauge = document.getElementById(id);
+            if (!gauge) return;
+            
+            const circumference = 471;
+            const clampedValue = Math.max(minVal, Math.min(maxVal, value));
+            const percentage = (clampedValue - minVal) / (maxVal - minVal);
+            const offset = circumference - (percentage * circumference);
+            gauge.style.strokeDashoffset = Math.max(0, offset);
+        }
+
+        // Update cycle timer
+        function updateCycleTimer() {
+            cycleTimeRemaining--;
+            
+            if (cycleTimeRemaining <= 0) {
+                completeBillingCycle();
+                cycleTimeRemaining = CYCLE_DURATION;
+                cycleNumber++;
+            }
+            
+            // Update timer display
+            const minutes = Math.floor(cycleTimeRemaining / 60);
+            const seconds = cycleTimeRemaining % 60;
+            document.getElementById('cycleTimer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update progress
+            const progress = ((CYCLE_DURATION - cycleTimeRemaining) / CYCLE_DURATION) * 100;
+            document.getElementById('cycleProgress').style.width = progress + '%';
+            document.getElementById('cycleProgressText').textContent = Math.round(progress) + '%';
+            
+            // Update cycle ID
+            document.getElementById('cycleId').textContent = `Cycle #${cycleNumber.toString().padStart(3, '0')}`;
+        }
+
+        // Complete billing cycle
+        function completeBillingCycle() {
+            const billAmount = cycleEnergy * TARIFF_RATE;
+            
+            // Create billing record
+            const record = {
+                cycleId: cycleNumber,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString(),
+                time: new Date().toLocaleTimeString(),
+                duration: '10 min',
+                energy: cycleEnergy,
+                amount: billAmount,
+                status: 'Completed'
+            };
+            
+            billingRecords.unshift(record);
+            
+            // Update totals
+            totalEnergyToday += cycleEnergy;
+            totalCostToday += billAmount;
+            
+            // Update displays
+            document.getElementById('todayEnergy').textContent = totalEnergyToday.toFixed(2) + ' kWh';
+            document.getElementById('todayCost').textContent = 'Rs ' + totalCostToday.toFixed(2);
+            document.getElementById('totalBills').textContent = billingRecords.length + ' cycles completed';
+            
+            // Update billing table
+            updateBillingTable();
+            
+            // Reset cycle energy
+            cycleEnergy = 0;
+            
+            // Update AI analytics
+            updateAIAnalytics();
+        }
+
+        // Update billing table
+        function updateBillingTable() {
+            const tbody = document.getElementById('billingTableBody');
+            if (!tbody) return;
+            
+            if (billingRecords.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-[var(--fg-muted)] py-8">
+                            No billing records yet. First cycle in progress...
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = billingRecords.slice(0, 10).map(record => `
+                <tr>
+                    <td class="mono text-sm">#${record.cycleId.toString().padStart(3, '0')}</td>
+                    <td class="text-sm">${record.date} ${record.time}</td>
+                    <td class="text-sm">${record.duration}</td>
+                    <td class="mono text-sm">${record.energy.toFixed(4)}</td>
+                    <td class="mono text-sm font-semibold text-[var(--accent)]">Rs ${record.amount.toFixed(2)}</td>
+                    <td>
+                        <span class="px-2 py-1 rounded-full text-xs bg-[var(--accent)]/20 text-[var(--accent)]">
+                            ${record.status}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update predictions
+        function updatePredictions() {
+            const hour = new Date().getHours();
+            // Simulate prediction based on time of day
+            predictionData = [
+                cycleEnergy,
+                (hour >= 6 && hour <= 9) ? 0.8 : (hour >= 18 && hour <= 22) ? 1.2 : 0.4,
+                (hour >= 18 && hour <= 22) ? 1.5 : 0.6,
+                (hour >= 18 && hour <= 22) ? 1.8 : 0.5,
+                (hour >= 18 && hour <= 22) ? 1.4 : 0.4,
+                0.7,
+                0.5
+            ];
+        }
+
+        // Update AI Analytics
+        function updateAIAnalytics() {
+            // Update recommendation
+            const hour = new Date().getHours();
+            let recommendation = '';
+            if (hour >= 18 && hour <= 22) {
+                recommendation = 'Peak hours detected. Consider shifting high-power appliances to off-peak hours (10 PM - 6 AM) to reduce costs by up to 25%.';
+            } else if (hour >= 6 && hour <= 9) {
+                recommendation = 'Morning peak period. Your water heater and AC usage is optimal. Consider setting AC to 24°C for additional savings.';
+            } else {
+                recommendation = 'Off-peak hours active. This is the best time to run washing machines, dishwashers, and EV chargers for maximum savings.';
+            }
+            
+            document.getElementById('aiRecommendation').textContent = recommendation;
+            
+            // Update anomaly status
+            const avgPower = powerHistory.length > 0 ? powerHistory.reduce((a, b) => a + b, 0) / powerHistory.length : 0;
+            let anomalyStatus = '';
+            if (currentPower > avgPower * 1.5 && avgPower > 0) {
+                anomalyStatus = 'Unusual power spike detected! Check for appliances left on or potential faults.';
+                document.getElementById('anomalyStatus').style.color = 'var(--danger)';
+            } else if (currentPower < avgPower * 0.3 && avgPower > 100) {
+                anomalyStatus = 'Lower than usual consumption detected. Normal operation confirmed.';
+                document.getElementById('anomalyStatus').style.color = 'var(--accent)';
+            } else {
+                anomalyStatus = 'Normal consumption patterns detected. No anomalies found.';
+                document.getElementById('anomalyStatus').style.color = 'var(--fg-muted)';
+            }
+            document.getElementById('anomalyStatus').textContent = anomalyStatus;
+            
+            // Update efficiency score
+            const efficiencyScore = Math.min(95, Math.max(60, 85 - (currentPower / 5000) * 20));
+            document.getElementById('efficiencyScore').textContent = Math.round(efficiencyScore) + '/100';
+            document.getElementById('efficiencyBar').style.width = efficiencyScore + '%';
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            drawRealtimeChart();
+            drawPredictionChart();
+            drawHistoryChart();
+        });
+    </script>
+</body>
+</html>
